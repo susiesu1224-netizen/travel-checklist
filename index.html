@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#4F7CFF">
+<title>出行清单</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --bg:#F5F6FA; --card:#FFFFFF; --primary:#4F7CFF; --primary-dark:#3A63D8;
+    --text:#1F2430; --sub:#8A8F9C; --border:#E8E9EF; --danger:#FF5C5C; --done:#B7BBC7;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;background:var(--bg);color:var(--text);padding-bottom:90px;}
+  header{position:sticky;top:0;background:var(--bg);z-index:10;padding:16px 16px 8px;}
+  h1{font-size:20px;margin:0 0 12px;}
+  .trip-select{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:14px;padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+  .trip-select select{flex:1;border:none;background:transparent;font-size:15px;font-weight:600;color:var(--text);appearance:none;}
+  .trip-select button{border:none;background:var(--primary);color:#fff;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;}
+  .progress-wrap{margin-top:10px;background:var(--border);border-radius:8px;height:8px;overflow:hidden;}
+  .progress-bar{height:100%;background:var(--primary);transition:width .25s;}
+  .progress-text{font-size:12px;color:var(--sub);margin-top:6px;}
+
+  .tabs{display:flex;gap:8px;overflow-x:auto;padding:12px 16px 4px;scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{flex:none;padding:7px 14px;border-radius:18px;background:var(--card);font-size:13px;color:var(--sub);white-space:nowrap;border:1px solid var(--border);}
+  .tab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .tab.add-tab{color:var(--primary);border:1px dashed var(--primary);background:transparent;}
+
+  main{padding:8px 16px 16px;}
+  .category-block{margin-bottom:18px;}
+  .category-title{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;color:var(--sub);margin:14px 4px 8px;}
+  .category-title .del-cat{color:var(--danger);font-size:12px;font-weight:500;}
+  ul.items{list-style:none;margin:0;padding:0;background:var(--card);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  li.item{display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--border);gap:10px;}
+  li.item:last-child{border-bottom:none;}
+  .checkbox{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);flex:none;display:flex;align-items:center;justify-content:center;}
+  .checkbox.checked{background:var(--primary);border-color:var(--primary);color:#fff;font-size:13px;}
+  .item-text{flex:1;font-size:15px;}
+  .item.done .item-text{color:var(--done);text-decoration:line-through;}
+  .item .del-item{color:var(--sub);font-size:18px;padding:4px 6px;}
+  .add-item-row{display:flex;gap:8px;padding:10px;background:var(--card);border-radius:14px;margin-top:8px;}
+  .add-item-row input{flex:1;border:none;background:var(--bg);border-radius:10px;padding:9px 12px;font-size:14px;}
+  .add-item-row button{border:none;background:var(--primary);color:#fff;border-radius:10px;padding:9px 16px;font-size:14px;font-weight:600;}
+  .empty-tip{text-align:center;color:var(--sub);font-size:13px;padding:30px 0;}
+
+  .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:var(--card);display:flex;border-top:1px solid var(--border);padding:8px 12px env(safe-area-inset-bottom);gap:8px;}
+  .bottom-bar button{flex:1;border:none;background:none;font-size:12px;color:var(--sub);display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;}
+  .bottom-bar button .ic{font-size:19px;}
+  .bottom-bar button.primary{color:var(--primary);font-weight:600;}
+
+  .modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:50;}
+  .modal-mask.show{display:flex;}
+  .modal{background:var(--card);width:100%;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto;}
+  .modal h2{margin:0 0 14px;font-size:17px;}
+  .modal input,.modal textarea{width:100%;border:1px solid var(--border);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:14px;margin-bottom:10px;}
+  .modal-actions{display:flex;gap:10px;margin-top:6px;}
+  .modal-actions button{flex:1;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:600;}
+  .modal-actions .cancel{background:var(--bg);color:var(--text);}
+  .modal-actions .confirm{background:var(--primary);color:#fff;}
+  .share-link-box{word-break:break-all;background:var(--bg);border-radius:10px;padding:10px;font-size:12px;color:var(--sub);margin-bottom:10px;}
+  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1F2430;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .2s;z-index:99;pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧳 出行清单</h1>
+  <div class="trip-select">
+    <select id="tripSelect"></select>
+    <button id="newTripBtn">+ 新建</button>
+  </div>
+  <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+  <div class="progress-text" id="progressText">0/0 已完成</div>
+</header>
+
+<div class="tabs" id="tabs"></div>
+
+<main id="main"></main>
+
+<div class="bottom-bar">
+  <button id="addCatBtn"><span class="ic">📂</span>分类</button>
+  <button id="aiBtn"><span class="ic">✨</span>AI建议</button>
+  <button id="resetBtn"><span class="ic">↺</span>重置打钩</button>
+  <button class="primary" id="shareBtn"><span class="ic">📤</span>分享</button>
+</div>
+
+<div class="modal-mask" id="modalMask"><div class="modal" id="modalBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'travel_checklist_trips_v1';
+const DEFAULT_TEMPLATE = {
+  "基础": ["手机充电器","充电宝","数据线","身份证/证件","钥匙","钱包/银行卡","常用药品","牙刷牙膏","毛巾"],
+  "出游": ["相机","好看的衣服/饰品","防晒霜","太阳镜","拖鞋","泳衣","零食"],
+  "出差": ["笔记本电脑","电脑充电器","工牌/名片","正装","笔记本和笔","会议资料"],
+  "回家": ["给家人的礼物","常备换洗衣物","身份证","老家适用的衣物"]
+};
+
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  const id = genId();
+  return {
+    activeTripId: id,
+    activeCat: null,
+    trips: [{
+      id, name:"默认出行", categories: cloneTemplate()
+    }]
+  };
+}
+function cloneTemplate(){
+  const cats = [];
+  for(const name in DEFAULT_TEMPLATE){
+    cats.push({ name, items: DEFAULT_TEMPLATE[name].map(t=>({id:genId(), text:t, done:false})) });
+  }
+  return cats;
+}
+function genId(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function getActiveTrip(){ return state.trips.find(t=>t.id===state.activeTripId) || state.trips[0]; }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+function render(){
+  renderTripSelect();
+  renderTabs();
+  renderMain();
+  renderProgress();
+  save();
+}
+
+function renderTripSelect(){
+  const sel = document.getElementById('tripSelect');
+  sel.innerHTML = state.trips.map(t=>`<option value="${t.id}" ${t.id===state.activeTripId?'selected':''}>${escapeHtml(t.name)}</option>`).join('');
+  sel.onchange = ()=>{ state.activeTripId = sel.value; state.activeCat = null; render(); };
+}
+
+function renderTabs(){
+  const trip = getActiveTrip();
+  const tabsEl = document.getElementById('tabs');
+  if(state.activeCat === null && trip.categories.length){ state.activeCat = trip.categories[0].name; }
+  tabsEl.innerHTML = `<div class="tab ${state.activeCat==='__all__'?'active':''}" data-cat="__all__">全部</div>` +
+    trip.categories.map(c=>`<div class="tab ${state.activeCat===c.name?'active':''}" data-cat="${escapeAttr(c.name)}">${escapeHtml(c.name)}</div>`).join('') +
+    `<div class="tab add-tab" id="addTabBtn">+ 添加分类</div>`;
+  tabsEl.querySelectorAll('.tab[data-cat]').forEach(el=>{
+    el.onclick = ()=>{ state.activeCat = el.dataset.cat; render(); };
+  });
+  document.getElementById('addTabBtn').onclick = openAddCategoryModal;
+}
+
+function renderMain(){
+  const trip = getActiveTrip();
+  const main = document.getElementById('main');
+  const cats = state.activeCat === '__all__' ? trip.categories : trip.categories.filter(c=>c.name===state.activeCat);
+
+  if(trip.categories.length === 0){
+    main.innerHTML = `<div class="empty-tip">还没有分类，点击下方"分类"添加一个吧</div>`;
+    return;
+  }
+
+  main.innerHTML = cats.map(cat => `
+    <div class="category-block" data-cat="${escapeAttr(cat.name)}">
+      <div class="category-title">
+        <span>${escapeHtml(cat.name)} (${cat.items.filter(i=>i.done).length}/${cat.items.length})</span>
+        <span class="del-cat" data-delcat="${escapeAttr(cat.name)}">删除分类</span>
+      </div>
+      <ul class="items">
+        ${cat.items.map(item => `
+          <li class="item ${item.done?'done':''}" data-item="${item.id}">
+            <div class="checkbox ${item.done?'checked':''}">${item.done?'✓':''}</div>
+            <div class="item-text">${escapeHtml(item.text)}</div>
+            <div class="del-item" data-delitem="${item.id}">✕</div>
+          </li>
+        `).join('') || '<div class="empty-tip">这个分类还没有物品</div>'}
+      </ul>
+      <div class="add-item-row">
+        <input type="text" placeholder="添加物品，回车确认" data-addinput="${escapeAttr(cat.name)}">
+        <button data-addbtn="${escapeAttr(cat.name)}">添加</button>
+      </div>
+    </div>
+  `).join('');
+
+  // bind events
+  main.querySelectorAll('.checkbox').forEach(el=>{
+    el.onclick = (e)=>{
+      const li = e.target.closest('.item');
+      toggleItem(li.dataset.item);
+    };
+  });
+  main.querySelectorAll('.item-text').forEach(el=>{
+    el.onclick = (e)=>{
+      const li = e.target.closest('.item');
+      toggleItem(li.dataset.item);
+    };
+  });
+  main.querySelectorAll('[data-delitem]').forEach(el=>{
+    el.onclick = ()=> deleteItem(el.dataset.delitem);
+  });
+  main.querySelectorAll('[data-delcat]').forEach(el=>{
+    el.onclick = ()=> deleteCategory(el.dataset.delcat);
+  });
+  main.querySelectorAll('[data-addbtn]').forEach(el=>{
+    el.onclick = ()=> addItemFromRow(el.dataset.addbtn);
+  });
+  main.querySelectorAll('[data-addinput]').forEach(el=>{
+    el.onkeydown = (e)=>{ if(e.key==='Enter') addItemFromRow(el.dataset.addinput); };
+  });
+}
+
+function addItemFromRow(catName){
+  const input = document.querySelector(`[data-addinput="${cssEscape(catName)}"]`);
+  const text = input.value.trim();
+  if(!text) return;
+  const trip = getActiveTrip();
+  const cat = trip.categories.find(c=>c.name===catName);
+  cat.items.push({id:genId(), text, done:false});
+  input.value = '';
+  render();
+}
+
+function toggleItem(itemId){
+  const trip = getActiveTrip();
+  for(const cat of trip.categories){
+    const item = cat.items.find(i=>i.id===itemId);
+    if(item){ item.done = !item.done; break; }
+  }
+  render();
+}
+function deleteItem(itemId){
+  const trip = getActiveTrip();
+  for(const cat of trip.categories){
+    const idx = cat.items.findIndex(i=>i.id===itemId);
+    if(idx>=0){ cat.items.splice(idx,1); break; }
+  }
+  render();
+}
+function deleteCategory(name){
+  if(!confirm(`删除分类"${name}"及其所有物品？`)) return;
+  const trip = getActiveTrip();
+  trip.categories = trip.categories.filter(c=>c.name!==name);
+  if(state.activeCat===name) state.activeCat=null;
+  render();
+}
+
+function renderProgress(){
+  const trip = getActiveTrip();
+  let total=0, done=0;
+  trip.categories.forEach(c=>c.items.forEach(i=>{ total++; if(i.done) done++; }));
+  const pct = total? Math.round(done/total*100) : 0;
+  document.getElementById('progressBar').style.width = pct+'%';
+  document.getElementById('progressText').textContent = `${done}/${total} 已完成`;
+}
+
+// ---- Modal helpers ----
+function openModal(html){
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalMask').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modalMask').classList.remove('show');
+}
+document.getElementById('modalMask').onclick = (e)=>{
+  if(e.target.id==='modalMask') closeModal();
+};
+
+function openAddCategoryModal(){
+  openModal(`
+    <h2>新增分类</h2>
+    <input type="text" id="newCatInput" placeholder="例如：露营 / 看展 / 探亲">
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeModal()">取消</button>
+      <button class="confirm" id="confirmAddCat">确定</button>
+    </div>
+  `);
+  document.getElementById('confirmAddCat').onclick = ()=>{
+    const name = document.getElementById('newCatInput').value.trim();
+    if(!name) return;
+    const trip = getActiveTrip();
+    if(trip.categories.some(c=>c.name===name)){ showToast('该分类已存在'); return; }
+    trip.categories.push({name, items:[]});
+    state.activeCat = name;
+    closeModal();
+    render();
+  };
+}
+
+document.getElementById('addCatBtn').onclick = openAddCategoryModal;
+
+document.getElementById('newTripBtn').onclick = ()=>{
+  openModal(`
+    <h2>新建出行</h2>
+    <input type="text" id="newTripName" placeholder="例如：东京旅游 / 上海出差">
+    <div style="font-size:12px;color:var(--sub);margin:-4px 0 10px;">将基于默认模板创建，可自行增删</div>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeModal()">取消</button>
+      <button class="confirm" id="confirmNewTrip">创建</button>
+    </div>
+  `);
+  document.getElementById('confirmNewTrip').onclick = ()=>{
+    const name = document.getElementById('newTripName').value.trim() || '新出行';
+    const id = genId();
+    state.trips.push({id, name, categories: cloneTemplate()});
+    state.activeTripId = id;
+    state.activeCat = null;
+    closeModal();
+    render();
+  };
+};
+
+document.getElementById('resetBtn').onclick = ()=>{
+  if(!confirm('重置当前出行的所有打钩状态？')) return;
+  const trip = getActiveTrip();
+  trip.categories.forEach(c=>c.items.forEach(i=>i.done=false));
+  render();
+};
+
+// ---- Share ----
+document.getElementById('shareBtn').onclick = ()=>{
+  const trip = getActiveTrip();
+  const payload = { name: trip.name, categories: trip.categories.map(c=>({name:c.name, items:c.items.map(i=>i.text)})) };
+  const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+  const url = `${location.origin}${location.pathname}#import=${encoded}`;
+  openModal(`
+    <h2>分享「${escapeHtml(trip.name)}」</h2>
+    <div class="share-link-box" id="shareLinkBox">${url}</div>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeModal()">关闭</button>
+      <button class="confirm" id="copyLinkBtn">复制链接</button>
+    </div>
+  `);
+  document.getElementById('copyLinkBtn').onclick = ()=>{
+    navigator.clipboard?.writeText(url).then(()=>showToast('已复制，发给朋友吧')).catch(()=>{
+      const ta = document.createElement('textarea');
+      ta.value=url; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      showToast('已复制，发给朋友吧');
+    });
+  };
+};
+
+function checkImportFromHash(){
+  const hash = location.hash;
+  if(!hash.startsWith('#import=')) return;
+  try{
+    const encoded = hash.slice('#import='.length);
+    const json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
+    const payload = JSON.parse(json);
+    openModal(`
+      <h2>导入清单</h2>
+      <div style="font-size:14px;margin-bottom:12px;">是否将「${escapeHtml(payload.name||'共享清单')}」导入为一份新的出行清单？</div>
+      <div class="modal-actions">
+        <button class="cancel" id="skipImport">不导入</button>
+        <button class="confirm" id="confirmImport">导入</button>
+      </div>
+    `);
+    document.getElementById('confirmImport').onclick = ()=>{
+      const id = genId();
+      state.trips.push({
+        id, name: payload.name || '共享清单',
+        categories: (payload.categories||[]).map(c=>({name:c.name, items:(c.items||[]).map(t=>({id:genId(), text:t, done:false}))}))
+      });
+      state.activeTripId = id; state.activeCat = null;
+      history.replaceState(null,'',location.pathname);
+      closeModal(); render();
+    };
+    document.getElementById('skipImport').onclick = ()=>{
+      history.replaceState(null,'',location.pathname);
+      closeModal();
+    };
+  }catch(e){ /* ignore malformed share link */ }
+}
+
+// ---- AI suggestion (placeholder, step 2) ----
+document.getElementById('aiBtn').onclick = ()=>{
+  openModal(`
+    <h2>✨ AI 出行建议</h2>
+    <input type="text" id="destInput" placeholder="例如：东京 · 旅游 / 北京 · 出差">
+    <div style="font-size:12px;color:var(--sub);margin:-4px 0 10px;">AI 会基于目的地和出行类型，补充你清单里可能遗漏的物品（功能即将上线）</div>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeModal()">关闭</button>
+      <button class="confirm" id="askAiBtn">获取建议</button>
+    </div>
+  `);
+  document.getElementById('askAiBtn').onclick = ()=>{
+    showToast('AI 建议功能即将上线，敬请期待～');
+  };
+};
+
+// ---- utils ----
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s){ return escapeHtml(s); }
+function cssEscape(s){ return String(s).replace(/(["\\])/g,'\\$1'); }
+
+checkImportFromHash();
+render();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

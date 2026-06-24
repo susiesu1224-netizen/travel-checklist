@@ -1,0 +1,13 @@
+{
+  "name": "出行清单",
+  "short_name": "出行清单",
+  "description": "分类管理出行物品清单，支持AI建议与分享",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F5F6FA",
+  "theme_color": "#4F7CFF",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
