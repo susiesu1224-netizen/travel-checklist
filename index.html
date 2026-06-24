@@ -23,7 +23,10 @@
   .trip-select button{border:none;background:var(--primary);color:#fff;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;}
   .progress-wrap{margin-top:10px;background:var(--border);border-radius:8px;height:8px;overflow:hidden;}
   .progress-bar{height:100%;background:var(--primary);transition:width .25s;}
-  .progress-text{font-size:12px;color:var(--sub);margin-top:6px;}
+  .progress-text{font-size:12px;color:var(--sub);}
+  .progress-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
+  .hide-done-btn{border:1px solid var(--border);background:var(--card);color:var(--sub);font-size:12px;border-radius:14px;padding:5px 12px;}
+  .hide-done-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
 
   .tabs{display:flex;gap:8px;overflow-x:auto;padding:12px 16px 4px;scrollbar-width:none;}
   .tabs::-webkit-scrollbar{display:none;}
@@ -79,7 +82,10 @@
     <button id="newTripBtn">+ 新建</button>
   </div>
   <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
-  <div class="progress-text" id="progressText">0/0 已完成</div>
+  <div class="progress-row">
+    <div class="progress-text" id="progressText">0/0 已完成</div>
+    <button id="hideDoneBtn" class="hide-done-btn">只看未完成</button>
+  </div>
 </header>
 
 <div class="tabs" id="tabs"></div>
@@ -244,12 +250,14 @@ function renderMain(){
 function renderGroups(cat){
   const groupOrder = [];
   const byGroup = new Map();
-  cat.items.forEach(item=>{
+  const visibleItems = state.hideDone ? cat.items.filter(i=>!i.done) : cat.items;
+  visibleItems.forEach(item=>{
     const g = item.group || '其他';
     if(!byGroup.has(g)){ byGroup.set(g, []); groupOrder.push(g); }
     byGroup.get(g).push(item);
   });
   if(cat.items.length === 0) return '<div class="empty-tip">这个分类还没有物品</div>';
+  if(visibleItems.length === 0) return '<div class="empty-tip">这个分类都已完成 🎉</div>';
   return groupOrder.map(g => `
     <div class="group-label">${escapeHtml(g)}</div>
     <ul class="items">
@@ -309,6 +317,9 @@ function renderProgress(){
   const pct = total? Math.round(done/total*100) : 0;
   document.getElementById('progressBar').style.width = pct+'%';
   document.getElementById('progressText').textContent = `${done}/${total} 已完成`;
+  const btn = document.getElementById('hideDoneBtn');
+  btn.classList.toggle('active', !!state.hideDone);
+  btn.onclick = ()=>{ state.hideDone = !state.hideDone; render(); };
 }
 
 // ---- Modal helpers ----
