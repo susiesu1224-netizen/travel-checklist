@@ -35,7 +35,8 @@
   .category-block{margin-bottom:18px;}
   .category-title{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;color:var(--sub);margin:14px 4px 8px;}
   .category-title .del-cat{color:var(--danger);font-size:12px;font-weight:500;}
-  ul.items{list-style:none;margin:0;padding:0;background:var(--card);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .group-label{font-size:12px;color:var(--sub);font-weight:600;margin:10px 6px 4px;}
+  ul.items{list-style:none;margin:0 0 6px;padding:0;background:var(--card);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);}
   li.item{display:flex;align-items:center;padding:13px 14px;border-bottom:1px solid var(--border);gap:10px;}
   li.item:last-child{border-bottom:none;}
   .checkbox{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);flex:none;display:flex;align-items:center;justify-content:center;}
@@ -44,7 +45,9 @@
   .item.done .item-text{color:var(--done);text-decoration:line-through;}
   .item .del-item{color:var(--sub);font-size:18px;padding:4px 6px;}
   .add-item-row{display:flex;gap:8px;padding:10px;background:var(--card);border-radius:14px;margin-top:8px;}
-  .add-item-row input{flex:1;border:none;background:var(--bg);border-radius:10px;padding:9px 12px;font-size:14px;}
+  .add-item-row input{border:none;background:var(--bg);border-radius:10px;padding:9px 12px;font-size:14px;}
+  .add-item-row input.add-text{flex:1.4;}
+  .add-item-row input.add-group{flex:1;}
   .add-item-row button{border:none;background:var(--primary);color:#fff;border-radius:10px;padding:9px 16px;font-size:14px;font-weight:600;}
   .empty-tip{text-align:center;color:var(--sub);font-size:13px;padding:30px 0;}
 
@@ -94,12 +97,28 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const STORAGE_KEY = 'travel_checklist_trips_v1';
+const STORAGE_KEY = 'travel_checklist_trips_v2';
 const DEFAULT_TEMPLATE = {
-  "基础": ["手机充电器","充电宝","数据线","身份证/证件","钥匙","钱包/银行卡","常用药品","牙刷牙膏","毛巾"],
-  "出游": ["相机","好看的衣服/饰品","防晒霜","太阳镜","拖鞋","泳衣","零食"],
-  "出差": ["笔记本电脑","电脑充电器","工牌/名片","正装","笔记本和笔","会议资料"],
-  "回家": ["给家人的礼物","常备换洗衣物","身份证","老家适用的衣物"]
+  "必带": {
+    "证件钱包": ["身份证","家里钥匙"],
+    "电子设备": ["手机充电器","充电宝（充电宝的充电器）","耳机","手表充电器"],
+    "护肤化妆": ["洗面奶","护肤水","精华","面霜","眼霜","防晒","粉底","粉底扑","眉笔","口红","双眼皮贴","假睫毛睫毛胶","其他化妆工具（睫毛夹 眼影 眼影刷 眼线笔 睫毛膏）","卸妆水眼唇","卸妆水脸","卸妆棉","棉签","隐形眼镜"],
+    "洗护用品": ["洗脸巾"],
+    "衣物配饰": ["睡衣","发带"],
+    "健康药品": ["必备药（胃疼药 拉肚子药 一把死定 鼻炎药 平时吃的药）"],
+    "出行杂物": ["雨伞","一次性浴巾"]
+  },
+  "选带": {
+    "证件钱包": ["护照","港澳通行证","钱包（银行卡）"],
+    "电子设备": ["Pocket3"],
+    "护肤化妆": ["面膜","护手霜","润唇膏","小剪刀剪假睫毛","美白神器"],
+    "洗护用品": ["洗发水","护发素","护发精油","干发帽","干发喷雾","毛巾","牙膏","牙刷","卫生巾","湿巾","面巾纸","HH"],
+    "衣物配饰": ["时尚包包","衣服","裤子","内衣内裤","袜子","拖鞋","墨镜","首饰（项链 耳环）","帽子防晒帽油头帽","头绳","王妃梳","防晒口罩"],
+    "健康药品": ["健胃消食片","眼镜盒（眼镜布）"],
+    "出行杂物": ["保鲜袋","水","水杯","装矿泉水的袋子","一次性马桶垫","靠枕","睡袋","书 高铁上看","本"],
+    "出差特殊准备": ["电脑（电脑充电器）"],
+    "玩的时候用的": ["扇子","自拍杆","手机支架"]
+  }
 };
 
 let state = loadState();
@@ -120,8 +139,13 @@ function loadState(){
 }
 function cloneTemplate(){
   const cats = [];
-  for(const name in DEFAULT_TEMPLATE){
-    cats.push({ name, items: DEFAULT_TEMPLATE[name].map(t=>({id:genId(), text:t, done:false})) });
+  for(const catName in DEFAULT_TEMPLATE){
+    const groups = DEFAULT_TEMPLATE[catName];
+    const items = [];
+    for(const groupName in groups){
+      groups[groupName].forEach(t=> items.push({id:genId(), text:t, done:false, group:groupName}));
+    }
+    cats.push({ name: catName, items });
   }
   return cats;
 }
@@ -178,17 +202,10 @@ function renderMain(){
         <span>${escapeHtml(cat.name)} (${cat.items.filter(i=>i.done).length}/${cat.items.length})</span>
         <span class="del-cat" data-delcat="${escapeAttr(cat.name)}">删除分类</span>
       </div>
-      <ul class="items">
-        ${cat.items.map(item => `
-          <li class="item ${item.done?'done':''}" data-item="${item.id}">
-            <div class="checkbox ${item.done?'checked':''}">${item.done?'✓':''}</div>
-            <div class="item-text">${escapeHtml(item.text)}</div>
-            <div class="del-item" data-delitem="${item.id}">✕</div>
-          </li>
-        `).join('') || '<div class="empty-tip">这个分类还没有物品</div>'}
-      </ul>
+      ${renderGroups(cat)}
       <div class="add-item-row">
-        <input type="text" placeholder="添加物品，回车确认" data-addinput="${escapeAttr(cat.name)}">
+        <input type="text" class="add-text" placeholder="物品名称" data-addinput="${escapeAttr(cat.name)}">
+        <input type="text" class="add-group" placeholder="标签(可选)" data-addgroup="${escapeAttr(cat.name)}">
         <button data-addbtn="${escapeAttr(cat.name)}">添加</button>
       </div>
     </div>
@@ -219,16 +236,45 @@ function renderMain(){
   main.querySelectorAll('[data-addinput]').forEach(el=>{
     el.onkeydown = (e)=>{ if(e.key==='Enter') addItemFromRow(el.dataset.addinput); };
   });
+  main.querySelectorAll('[data-addgroup]').forEach(el=>{
+    el.onkeydown = (e)=>{ if(e.key==='Enter') addItemFromRow(el.dataset.addgroup); };
+  });
+}
+
+function renderGroups(cat){
+  const groupOrder = [];
+  const byGroup = new Map();
+  cat.items.forEach(item=>{
+    const g = item.group || '其他';
+    if(!byGroup.has(g)){ byGroup.set(g, []); groupOrder.push(g); }
+    byGroup.get(g).push(item);
+  });
+  if(cat.items.length === 0) return '<div class="empty-tip">这个分类还没有物品</div>';
+  return groupOrder.map(g => `
+    <div class="group-label">${escapeHtml(g)}</div>
+    <ul class="items">
+      ${byGroup.get(g).map(item => `
+        <li class="item ${item.done?'done':''}" data-item="${item.id}">
+          <div class="checkbox ${item.done?'checked':''}">${item.done?'✓':''}</div>
+          <div class="item-text">${escapeHtml(item.text)}</div>
+          <div class="del-item" data-delitem="${item.id}">✕</div>
+        </li>
+      `).join('')}
+    </ul>
+  `).join('');
 }
 
 function addItemFromRow(catName){
   const input = document.querySelector(`[data-addinput="${cssEscape(catName)}"]`);
+  const groupInput = document.querySelector(`[data-addgroup="${cssEscape(catName)}"]`);
   const text = input.value.trim();
   if(!text) return;
+  const group = groupInput.value.trim();
   const trip = getActiveTrip();
   const cat = trip.categories.find(c=>c.name===catName);
-  cat.items.push({id:genId(), text, done:false});
+  cat.items.push({id:genId(), text, done:false, group});
   input.value = '';
+  groupInput.value = '';
   render();
 }
 
@@ -331,7 +377,7 @@ document.getElementById('resetBtn').onclick = ()=>{
 // ---- Share ----
 document.getElementById('shareBtn').onclick = ()=>{
   const trip = getActiveTrip();
-  const payload = { name: trip.name, categories: trip.categories.map(c=>({name:c.name, items:c.items.map(i=>i.text)})) };
+  const payload = { name: trip.name, categories: trip.categories.map(c=>({name:c.name, items:c.items.map(i=>({text:i.text, group:i.group||''}))})) };
   const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
   const url = `${location.origin}${location.pathname}#import=${encoded}`;
   openModal(`
@@ -371,7 +417,10 @@ function checkImportFromHash(){
       const id = genId();
       state.trips.push({
         id, name: payload.name || '共享清单',
-        categories: (payload.categories||[]).map(c=>({name:c.name, items:(c.items||[]).map(t=>({id:genId(), text:t, done:false}))}))
+        categories: (payload.categories||[]).map(c=>({name:c.name, items:(c.items||[]).map(t=>{
+          const isObj = typeof t === 'object' && t !== null;
+          return {id:genId(), text: isObj ? t.text : t, done:false, group: isObj ? (t.group||'') : ''};
+        })}))
       });
       state.activeTripId = id; state.activeCat = null;
       history.replaceState(null,'',location.pathname);
